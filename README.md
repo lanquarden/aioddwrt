@@ -1,22 +1,22 @@
-Small wrapper for asuswrt.
+Small wrapper for ddwrt forked from [aioddwrt]
+
+[aioddwrt]: https://github.com/kennedyshead/aioasuswrt
 
 ### How to run tests
 
 `python setup.py test`
 
 ## Credits:
-[@mvn23](https://github.com/mvn23)
-[@halkeye](https://github.com/halkeye)
-[@maweki](https://github.com/maweki)
-[@quarcko](https://github.com/quarcko)
-[@wdullaer](https://github.com/wdullaer)
+[@kennedyshead](https://github.com/kennedyshead)
 
 ## Info
-There are many different versions of asuswrt and sometimes they just dont work in current implementation.
-If you have a problem with your specific router open an issue, but please add as much info as you can and atleast:
+There are many different versions of ddwrt and sometimes they just don't work 
+in current implementation.
+If you have a problem with your specific router open an issue, but please add 
+as much info as you can and at least:
 
 * Version of router
-* Version of Asuswrt
+* Version of ddwrt
 
 ## Known issues
 
@@ -30,16 +30,17 @@ import logging
 
 import sys
 
-from aioasuswrt.asuswrt import AsusWrt
+from aioddwrt.ddwrt import DdWrt
 
-component = AsusWrt('192.168.1.1', 22, username='****', password='****')
+component = DdWrt('192.168.1.1', 22, username='****', password='****')
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
 async def print_data():
     logger.debug("wl")
-    logger.debug(await component.connection.async_run_command('for dev in `nvram get wl_ifnames`; do wl -i $dev assoclist; done'))
+    logger.debug(await component.connection.async_run_command(
+        'for dev in `nvram get wl_ifnames`; do wl -i $dev assoclist; done'))
     dev = await component.async_get_wl()
     logger.debug(dev)
     logger.debug("arp")
@@ -51,7 +52,8 @@ async def print_data():
     dev.update(await component.async_get_neigh(dev))
     logger.debug(dev)
     logger.debug("leases")
-    logger.debug(await component.connection.async_run_command('cat /var/lib/misc/dnsmasq.leases'))
+    logger.debug(await component.connection.async_run_command(
+        'cat /var/lib/misc/dnsmasq.leases'))
     dev.update(await component.async_get_leases(dev))
     logger.debug(dev)
 

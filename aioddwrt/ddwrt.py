@@ -1,4 +1,4 @@
-"""Module for Asuswrt."""
+"""Module for ddwrt."""
 import inspect
 import logging
 import math
@@ -6,8 +6,8 @@ import re
 from collections import namedtuple
 from datetime import datetime
 
-from aioasuswrt.connection import SshConnection, TelnetConnection
-from aioasuswrt.helpers import convert_size
+from aioddwrt.connection import SshConnection, TelnetConnection
+from aioddwrt.helpers import convert_size
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ async def _parse_lines(lines, regex):
     return results
 
 
-class AsusWrt:
+class DdWrt:
     """This is the interface class."""
 
     def __init__(self, host, port=None, use_telnet=False, username=None,
@@ -157,7 +157,7 @@ class AsusWrt:
         return devices
 
     async def async_get_connected_devices(self):
-        """Retrieve data from ASUSWRT.
+        """Retrieve data from DDWRT.
 
         Calls various commands on the router and returns the superset of all
         responses. Some commands will not work on some routers.
@@ -180,7 +180,7 @@ class AsusWrt:
         return ret_devices
 
     async def async_get_bytes_total(self, use_cache=True):
-        """Retrieve total bytes (rx an tx) from ASUSWRT."""
+        """Retrieve total bytes (rx an tx) from DDWRT."""
         now = datetime.utcnow()
         if use_cache and self._trans_cache_timer and self._cache_time > \
                 (now - self._trans_cache_timer).total_seconds():

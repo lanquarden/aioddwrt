@@ -12,7 +12,7 @@ asyncssh.set_log_level('WARNING')
 
 
 class SshConnection:
-    """Maintains an SSH connection to an ASUS-WRT router."""
+    """Maintains an SSH connection to an DD-WRT router."""
 
     def __init__(self, host, port, username, password, ssh_key):
         """Initialize the SSH connection properties."""
@@ -74,7 +74,7 @@ class SshConnection:
 
 
 class TelnetConnection:
-    """Maintains a Telnet connection to an ASUS-WRT router."""
+    """Maintains a Telnet connection to an DD-WRT router."""
 
     def __init__(self, host, port, username, password):
         """Initialize the Telnet connection properties."""
@@ -118,7 +118,7 @@ class TelnetConnection:
         return [line.decode('utf-8') for line in data]
 
     async def async_connect(self):
-        """Connect to the ASUS-WRT Telnet server."""
+        """Connect to the DD-WRT Telnet server."""
         self._reader, self._writer = await asyncio.open_connection(
             self._host, self._port)
 

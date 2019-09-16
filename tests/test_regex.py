@@ -1,7 +1,7 @@
 import asyncio
 import pytest
-from aioasuswrt.asuswrt import (AsusWrt, _LEASES_CMD, _WL_CMD, _IP_NEIGH_CMD,
-                                _ARP_CMD, Device, _RX_COMMAND, _TX_COMMAND)
+from aioddwrt.ddwrt import (DdWrt, _LEASES_CMD, _WL_CMD, _IP_NEIGH_CMD,
+                            _ARP_CMD, Device, _RX_COMMAND, _TX_COMMAND)
 
 RX_DATA = ["2703926881", ""]
 TX_DATA = ["648110137", ""]
@@ -144,9 +144,9 @@ def RunCommandEmptyMock(command, *args, **kwargs):
 async def test_get_wl(event_loop, mocker):
     """Testing wl."""
     mocker.patch(
-        'aioasuswrt.connection.SshConnection.async_run_command',
+        'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
-    scanner = AsusWrt(host="localhost", port=22)
+    scanner = DdWrt(host="localhost", port=22)
     devices = await scanner.async_get_wl()
     assert WL_DEVICES == devices
 
@@ -155,9 +155,9 @@ async def test_get_wl(event_loop, mocker):
 async def test_get_wl_empty(event_loop, mocker):
     """Testing wl."""
     mocker.patch(
-        'aioasuswrt.connection.SshConnection.async_run_command',
+        'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandEmptyMock)
-    scanner = AsusWrt(host="localhost", port=22)
+    scanner = DdWrt(host="localhost", port=22)
     devices = await scanner.async_get_wl()
     assert {} == devices
 
@@ -166,9 +166,9 @@ async def test_get_wl_empty(event_loop, mocker):
 async def test_async_get_leases(event_loop, mocker):
     """Testing leases."""
     mocker.patch(
-        'aioasuswrt.connection.SshConnection.async_run_command',
+        'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
-    scanner = AsusWrt(host="localhost", port=22)
+    scanner = DdWrt(host="localhost", port=22)
     data = await scanner.async_get_leases(NEIGH_DEVICES.copy())
     assert LEASES_DEVICES == data
 
@@ -177,9 +177,9 @@ async def test_async_get_leases(event_loop, mocker):
 async def test_get_arp(event_loop, mocker):
     """Testing arp."""
     mocker.patch(
-        'aioasuswrt.connection.SshConnection.async_run_command',
+        'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
-    scanner = AsusWrt(host="localhost", port=22)
+    scanner = DdWrt(host="localhost", port=22)
     data = await scanner.async_get_arp()
     assert ARP_DEVICES == data
 
@@ -188,31 +188,31 @@ async def test_get_arp(event_loop, mocker):
 async def test_get_neigh(event_loop, mocker):
     """Testing neigh."""
     mocker.patch(
-        'aioasuswrt.connection.SshConnection.async_run_command',
+        'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
-    scanner = AsusWrt(host="localhost", port=22)
+    scanner = DdWrt(host="localhost", port=22)
     data = await scanner.async_get_neigh(NEIGH_DEVICES.copy())
     assert NEIGH_DEVICES == data
 
 
 @pytest.mark.asyncio
 async def test_get_connected_devices_ap(event_loop, mocker):
-    """Test for get asuswrt_data in ap mode."""
+    """Test for get ddwrt in ap mode."""
     mocker.patch(
-        'aioasuswrt.connection.SshConnection.async_run_command',
+        'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
-    scanner = AsusWrt(host="localhost", port=22, mode='ap', require_ip=True)
+    scanner = DdWrt(host="localhost", port=22, mode='ap', require_ip=True)
     data = await scanner.async_get_connected_devices()
     assert WAKE_DEVICES_AP == data
 
 
 @pytest.mark.asyncio
 async def test_get_connected_devices_no_ip(event_loop, mocker):
-    """Test for get asuswrt_data and not requiring ip."""
+    """Test for get ddwrt and not requiring ip."""
     mocker.patch(
-        'aioasuswrt.connection.SshConnection.async_run_command',
+        'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
-    scanner = AsusWrt(host="localhost", port=22, mode='ap', require_ip=False)
+    scanner = DdWrt(host="localhost", port=22, mode='ap', require_ip=False)
     data = await scanner.async_get_connected_devices()
     assert WAKE_DEVICES_NO_IP == data
 
@@ -221,9 +221,9 @@ async def test_get_connected_devices_no_ip(event_loop, mocker):
 async def test_get_packets_total(event_loop, mocker):
     """Test getting packet totals."""
     mocker.patch(
-        'aioasuswrt.connection.SshConnection.async_run_command',
+        'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
-    scanner = AsusWrt(host="localhost", port=22, mode='ap', require_ip=False)
+    scanner = DdWrt(host="localhost", port=22, mode='ap', require_ip=False)
     data = await scanner.async_get_tx()
     assert TX == data
     data = await scanner.async_get_rx()
