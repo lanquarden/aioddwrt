@@ -149,3 +149,15 @@ class TelnetConnection:
     async def disconnect(self):
         """Disconnects the client"""
         self._writer.close()
+
+
+class HttpConnection(object):
+
+    def __init__(self, hostname, username, password):
+        self.host = hostname
+        self.username = username
+        self.password = password
+
+    async def async_get_page(self, page, retry=False):
+        # TODO get page with asyncio
+        pass

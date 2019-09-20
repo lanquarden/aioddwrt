@@ -6,14 +6,14 @@ import re
 from collections import namedtuple
 from datetime import datetime
 
-from aioddwrt.connection import SshConnection, TelnetConnection
+from aioddwrt.connection import SshConnection, TelnetConnection, HttpConnection
 from aioddwrt.helpers import convert_size
 
 _LOGGER = logging.getLogger(__name__)
 
 CHANGE_TIME_CACHE_DEFAULT = 5  # Default 60s
 
-_LEASES_CMD = 'cat /var/lib/misc/dnsmasq.leases'
+_LEASES_CMD = 'cat /tmp/dnsmasq.leases'
 _LEASES_REGEX = re.compile(
     r'\w+\s' +
     r'(?P<mac>(([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})))\s' +
@@ -21,25 +21,13 @@ _LEASES_REGEX = re.compile(
     r'(?P<host>([^\s]+))')
 
 # Command to get both 5GHz and 2.4GHz clients
-_WL_CMD = 'for dev in `nvram get wl1_vifs && nvram get wl0_vifs && ' \
-          'nvram get wl_ifnames`; do ' \
-          'if type wlanconfig > /dev/null; then ' \
-          'wlanconfig $dev list | awk \'FNR > 1 {print substr($1, 0, 18)}\';' \
-          ' else wl -i $dev assoclist; fi; done'
-_WL_REGEX = re.compile(
-    r'\w+\s' +
-    r'(?P<mac>(([0-9A-F]{2}[:-]){5}([0-9A-F]{2})))')
-
-_IP_NEIGH_CMD = 'ip neigh'
-_IP_NEIGH_REGEX = re.compile(
-    r'(?P<ip>([0-9]{1,3}[\.]){3}[0-9]{1,3}|'
-    r'([0-9a-fA-F]{1,4}:){1,7}[0-9a-fA-F]{0,4}(:[0-9a-fA-F]{1,4}){1,7})\s'
-    r'\w+\s'
-    r'\w+\s'
-    r'(\w+\s(?P<mac>(([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2}))))?\s'
-    r'\s?(router)?'
-    r'\s?(nud)?'
-    r'(?P<status>(\w+))')
+_WL_CMD = ('nvram show 2> /dev/null | grep \'wl._ifname\' | awk -F '
+           '\'=\' \'{cmd="wl -i " $2 " assoclist"; while(cmd | '
+           'getline var) print var}\' | awk \'{print $2}\'')
+_IW_CMD = ('iw dev | grep Interface | awk \'{cmd="iw dev " $2 " station'
+           ' dump"; while(cmd | getline var) print var}\' | grep Station'
+           ' | awk \'{print $2}\'')
+_MAC_REGEX = re.compile(r'(?P<mac>([0-9A-Fa-f]{1,2}\:){5}[0-9A-Fa-f]{1,2})')
 
 _ARP_CMD = 'arp -n'
 _ARP_REGEX = re.compile(
@@ -77,12 +65,13 @@ async def _parse_lines(lines, regex):
 class DdWrt:
     """This is the interface class."""
 
-    def __init__(self, host, port=None, use_telnet=False, username=None,
+    def __init__(self, host, port=None, protocol='http', username=None,
                  password=None, ssh_key=None, mode='router', require_ip=False,
                  time_cache=CHANGE_TIME_CACHE_DEFAULT):
         """Init function."""
         self.require_ip = require_ip
         self.mode = mode
+        self.protocol = protocol
         self._rx_latest = None
         self._tx_latest = None
         self._latest_transfer_check = None
@@ -90,19 +79,41 @@ class DdWrt:
         self._trans_cache_timer = None
         self._transfer_rates_cache = None
         self._latest_transfer_data = 0, 0
+        self._wl_cmd = None
 
-        if use_telnet:
+        if protocol == 'http':
+            self.connection = HttpConnection(host, username, password)
+        elif protocol == 'telnet':
             self.connection = TelnetConnection(
                 host, port, username, password)
         else:
             self.connection = SshConnection(
                 host, port, username, password, ssh_key)
 
+    async def async_set_wl_cmd(self):
+        lines = await self.connection.async_run_command('wl ver')
+        if lines and 'version' in lines[1]:
+            wl_cmd = _WL_CMD
+        else:
+            wl_cmd = _IW_CMD
+        return wl_cmd
+
+    async def _parse_http_response(self, response):
+        results = ''
+        return results
+
     async def async_get_wl(self):
-        lines = await self.connection.async_run_command(_WL_CMD)
-        if not lines:
-            return {}
-        result = await _parse_lines(lines, _WL_REGEX)
+        if self.protocol == 'http':
+            response = await self.connection.async_get_page(
+                'Status_Wireless.live.asp')
+            result = await self._parse_http_wl(response)
+        else:
+            if not self._wl_cmd:
+                self._wl_cmd = await self.async_set_wl_cmd()
+            lines = await self.connection.async_run_command(self._wl_cmd)
+            if not lines:
+                return {}
+            result = await _parse_lines(lines, _MAC_REGEX)
         devices = {}
         for device in result:
             mac = device['mac'].upper()
@@ -127,23 +138,6 @@ class DdWrt:
                 devices[mac] = Device(mac, device['ip'], host)
         return devices
 
-    async def async_get_neigh(self, cur_devices):
-        lines = await self.connection.async_run_command(_IP_NEIGH_CMD)
-        if not lines:
-            return {}
-        result = await _parse_lines(lines, _IP_NEIGH_REGEX)
-        devices = {}
-        for device in result:
-            status = device['status']
-            if status is None or status.upper() != 'REACHABLE':
-                continue
-            if device['mac'] is not None:
-                mac = device['mac'].upper()
-                old_device = cur_devices.get(mac)
-                old_ip = old_device.ip if old_device else None
-                devices[mac] = Device(mac, device.get('ip', old_ip), None)
-        return devices
-
     async def async_get_arp(self):
         lines = await self.connection.async_run_command(_ARP_CMD)
         if not lines:
@@ -166,8 +160,6 @@ class DdWrt:
         dev = await self.async_get_wl()
         devices.update(dev)
         dev = await self.async_get_arp()
-        devices.update(dev)
-        dev = await self.async_get_neigh(devices)
         devices.update(dev)
         if not self.mode == 'ap':
             dev = await self.async_get_leases(devices)
