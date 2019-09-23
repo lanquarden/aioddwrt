@@ -98,8 +98,12 @@ class DdWrt:
             wl_cmd = _IW_CMD
         return wl_cmd
 
-    async def _parse_http_response(self, response):
-        results = ''
+    async def _parse_http_wl(self, response):
+        results = {}
+        return results
+
+    async def _parse_http_leases(self, response):
+        results = {}
         return results
 
     async def async_get_wl(self):
@@ -121,11 +125,16 @@ class DdWrt:
         return devices
 
     async def async_get_leases(self, cur_devices):
-        lines = await self.connection.async_run_command(_LEASES_CMD)
-        if not lines:
-            return {}
-        lines = [line for line in lines if not line.startswith('duid ')]
-        result = await _parse_lines(lines, _LEASES_REGEX)
+        if self.protocol == 'http':
+            response = await self.connection.async_get_page(
+                'Status_Lan.live.asp')
+            result = await self._parse_http_leases(response)
+        else:
+            lines = await self.connection.async_run_command(_LEASES_CMD)
+            if not lines:
+                return {}
+            lines = [line for line in lines if not line.startswith('duid ')]
+            result = await _parse_lines(lines, _LEASES_REGEX)
         devices = {}
         for device in result:
             # For leases where the client doesn't set a hostname, ensure it
@@ -139,6 +148,8 @@ class DdWrt:
         return devices
 
     async def async_get_arp(self):
+        if self.protocol == 'http':
+            return {}
         lines = await self.connection.async_run_command(_ARP_CMD)
         if not lines:
             return {}
