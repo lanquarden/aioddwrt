@@ -4,10 +4,11 @@ import logging
 from asyncio import LimitOverrunError, TimeoutError
 
 import asyncssh
+import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-_PATH_EXPORT_COMMAND = "PATH=$PATH:/bin:/usr/sbin:/sbin"
+#_PATH_EXPORT_COMMAND = "PATH=$PATH:/bin:/usr/sbin:/sbin"
 asyncssh.set_log_level('WARNING')
 
 
@@ -33,9 +34,9 @@ class SshConnection:
         """
         if not self.is_connected:
             await self.async_connect()
+        _LOGGER.debug('Running "{}" at {}'.format(command, self._host))
         try:
-            result = await asyncio.wait_for(self._client.run(
-                "%s && %s" % (_PATH_EXPORT_COMMAND, command)), 9)
+            result = await asyncio.wait_for(self._client.run(command), 9)
         except asyncssh.misc.ChannelOpenError:
             if not retry:
                 await self.async_connect()
@@ -49,7 +50,8 @@ class SshConnection:
             self._connected = False
             _LOGGER.error("Host timeout.")
             return []
-
+        _LOGGER.debug('Command "{}" returned {} at {}'.format(
+            command, str(result), self._host))
         self._connected = True
         return result.stdout.split('\n')
 
@@ -69,8 +71,14 @@ class SshConnection:
             'known_hosts': None
         }
 
+        _LOGGER.debug('Connecting to {} with kwargs {}'.format(
+            self._host, str(kwargs)))
+
         self._client = await asyncssh.connect(self._host, **kwargs)
         self._connected = True
+
+    async def clean_up(self):
+        pass
 
 
 class TelnetConnection:
@@ -95,11 +103,10 @@ class TelnetConnection:
         use the existing connection.
         """
         await self.async_connect()
+        _LOGGER.debug('Running "{}" at {}'.format(command, self._host))
         try:
             with (await self._io_lock):
-                self._writer.write('{}\n'.format(
-                    "%s && %s" % (
-                        _PATH_EXPORT_COMMAND, command)).encode('ascii'))
+                self._writer.write('{}\n'.format(command).encode('ascii'))
                 data = ((await asyncio.wait_for(self._reader.readuntil(
                     self._prompt_string), 9)).split(b'\n')[1:-1])
 
@@ -114,6 +121,9 @@ class TelnetConnection:
             return []
         finally:
             self._writer.close()
+
+        _LOGGER.debug('Command "{}" returned {} at {}'.format(
+            command, str(data), self._host))
 
         return [line.decode('utf-8') for line in data]
 
@@ -150,6 +160,9 @@ class TelnetConnection:
         """Disconnects the client"""
         self._writer.close()
 
+    async def clean_up(self):
+        await self.disconnect()
+
 
 class HttpConnection(object):
 
@@ -157,7 +170,29 @@ class HttpConnection(object):
         self.host = hostname
         self.username = username
         self.password = password
+        self.session = None
+
+    async def async_set_session(self):
+        if not self.session:
+            msg = "Creating HTTP session with login: {} and password {}"
+            _LOGGER.debug(msg.format(self.username, self.password))
+            self.session = aiohttp.ClientSession(
+                auth=aiohttp.BasicAuth(login=self.username,
+                                       password=self.password))
 
     async def async_get_page(self, page, retry=False):
-        # TODO get page with asyncio
-        pass
+        _LOGGER.debug("Getting {}".format(page))
+        if not self.session:
+            await self.async_set_session()
+        url = "http://{}/{}".format(self.host, page)
+        async with self.session.get(url) as response:
+            msg = "Status {} for {}"
+            _LOGGER.debug(msg.format(response.status, url))
+            data = await response.text()
+            msg = "Response {} for {}"
+            _LOGGER.debug(msg.format(url, data))
+            return data
+
+    async def clean_up(self):
+        if self.session:
+            await self.session.close()

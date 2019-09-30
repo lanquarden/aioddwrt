@@ -128,6 +128,16 @@ HTTP_WL_DATA = """
 """
 
 
+def HttpPageMock(page, *args, **kwargs):
+    f = asyncio.Future()
+    if page == "Status_Lan.live.asp":
+        f.set_result(HTTP_LAN_DATA)
+        return f
+    if page == "Status_Wireless.live.asp":
+        f.set_result(HTTP_WL_DATA)
+        return f
+
+
 def RunCommandMock(command, *args, **kwargs):
     f = asyncio.Future()
     if command == _WL_CMD:
@@ -188,6 +198,15 @@ async def test_async_get_leases(event_loop, mocker):
 
 
 @pytest.mark.asyncio
+async def test_async_get_http_leases(event_loop, mocker):
+    mocker.patch(
+        'aioddwrt.connection.HttpConnection.async_get_page',
+        side_effect=HttpPageMock)
+    scanner = DdWrt(host="localhost", port=22)
+    data = await scanner.async_get_leases()
+
+
+@pytest.mark.asyncio
 async def test_get_arp(event_loop, mocker):
     """Testing arp."""
     mocker.patch(
@@ -231,3 +250,4 @@ async def test_get_packets_total(event_loop, mocker):
     assert TX == data
     data = await scanner.async_get_rx()
     assert RX == data
+

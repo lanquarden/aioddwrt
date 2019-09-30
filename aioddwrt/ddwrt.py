@@ -41,6 +41,9 @@ _ARP_REGEX = re.compile(
 _RX_COMMAND = 'cat /sys/class/net/eth0/statistics/rx_bytes'
 _TX_COMMAND = 'cat /sys/class/net/eth0/statistics/tx_bytes'
 
+
+_HTTP_DATA = re.compile(r'\{(\w+)::([^\}]*)\}')
+
 Device = namedtuple('Device', ['mac', 'ip', 'name'])
 
 
@@ -98,12 +101,42 @@ class DdWrt:
             wl_cmd = _IW_CMD
         return wl_cmd
 
+    @staticmethod
+    async def _parse_http_data(response):
+        return {key: val for key, val in _HTTP_DATA.findall(response)}
+
     async def _parse_http_wl(self, response):
-        results = {}
-        return results
+        """Parse wireless data returned by web."""
+        data = await self._parse_http_data(response)
+        active_wireless = data.get('active_wireless')
+        if not active_wireless:
+            return []
+
+        # The DD-WRT UI uses its own data format and then
+        # regex's out values so this is done here too
+        # Remove leading and trailing single quotes.
+        clean_str = active_wireless.strip().strip("'")
+        elements = clean_str.split("','")
+
+        return [item for item in elements if _MAC_REGEX.match(item)]
 
     async def _parse_http_leases(self, response):
-        results = {}
+        """Parse lease data returned by web."""
+        # Remove leading and trailing quotes and spaces
+        data = await self._parse_http_data(response)
+        cleaned_str = data.get('dhcp_leases').replace(
+            "\"", "").replace("\'", "").replace(" ", "")
+        elements = cleaned_str.split(',')
+        num_clients = int(len(elements) / 5)
+        results = []
+        for idx in range(0, num_clients):
+            # The data is a single array
+            # every 5 elements represents one host, the MAC
+            # is the third element and the name is the first.
+            mac_index = (idx * 5) + 2
+            if mac_index < len(elements):
+                mac = elements[mac_index]
+                results.append({'mac': mac, 'host': elements[idx * 5]})
         return results
 
     async def async_get_wl(self):
@@ -245,3 +278,6 @@ class DdWrt:
     @property
     def is_connected(self):
         return self.connection.is_connected
+
+    async def clean_up(self):
+        await self.connection.clean_up()
