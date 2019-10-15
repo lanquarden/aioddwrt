@@ -16,16 +16,12 @@ WL_DATA = [
     'AB:CD:DE:AB:CD:EF\r'
 ]
 
-WL_DEVICES = {
-    '01:02:03:04:06:08': Device(
-        mac='01:02:03:04:06:08', ip=None, name=None),
-    '08:09:10:11:12:14': Device(
-        mac='08:09:10:11:12:14', ip=None, name=None),
-    '08:09:10:11:12:15': Device(
-        mac='08:09:10:11:12:15', ip=None, name=None),
-    'AB:CD:DE:AB:CD:EF': Device(
-        mac='AB:CD:DE:AB:CD:EF', ip=None, name=None)
-}
+WL_DEVICES = [
+    '01:02:03:04:06:08',
+    '08:09:10:11:12:14',
+    '08:09:10:11:12:15',
+    'AB:CD:DE:AB:CD:EF',
+]
 
 ARP_DATA = [
     '? (123.123.123.125) at 01:02:03:04:06:08 [ether]  on eth0\r',
@@ -53,10 +49,13 @@ LEASES_DATA = [
 ]
 
 LEASES_DEVICES = {
-    '01:02:03:04:06:08': Device(
-        mac='01:02:03:04:06:08', ip='123.123.123.125', name='TV'),
-    '08:09:10:11:12:14': Device(
-        mac='08:09:10:11:12:14', ip='123.123.123.126', name='')
+    '01:02:03:04:06:08': {
+        'mac': '01:02:03:04:06:08', 'ip': '123.123.123.125', 'host': 'TV'},
+    '08:09:10:11:12:14': {
+        'mac': '08:09:10:11:12:14', 'ip': '123.123.123.126', 'host': ''},
+    '01:02:03:04:06:10': {
+        'mac': '01:02:03:04:06:10', 'ip': '123.123.123.127',
+        'host': 'android'},
 }
 
 WAKE_DEVICES = {
@@ -104,7 +103,7 @@ HTTP_LAN_DATA = """
 {dhcp_start::100}
 {dhcp_num::50}
 {dhcp_lease_time::1440}
-{dhcp_leases:: 'device_1','192.168.1.113','AA:BB:CC:DD:EE:00','1 day 00:00:00','113','device_2','192.168.1.201','AA:BB:CC:DD:EE:01','Static','201'}
+{dhcp_leases:: 'TV','123.123.123.125','01:02:03:04:06:08','1 day 00:00:00','113','android','123.123.123.127','01:02:03:04:06:10','Static','201','*','123.123.123.126','08:09:10:11:12:14','Static','201'}}
 {pptp_leases::}
 {pppoe_leases::}
 {arp_table:: 'device_1','192.168.1.113','AA:BB:CC:DD:EE:00','13','device_2','192.168.1.201','AA:BB:CC:DD:EE:01','1'}
@@ -155,6 +154,9 @@ def RunCommandMock(command, *args, **kwargs):
     if command == _TX_COMMAND:
         f.set_result(TX_DATA)
         return f
+    if command == 'wl ver':
+        f.set_result(['wl ver', 'version x.x.x'])
+        return f
     raise Exception("Unhandled command: %s" % command)
 
 
@@ -183,7 +185,7 @@ async def test_get_wl_empty(event_loop, mocker):
         side_effect=RunCommandEmptyMock)
     scanner = DdWrt(host="localhost", port=22)
     devices = await scanner.async_get_wl()
-    assert {} == devices
+    assert [] == devices
 
 
 @pytest.mark.asyncio
@@ -193,7 +195,7 @@ async def test_async_get_leases(event_loop, mocker):
         'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
     scanner = DdWrt(host="localhost", port=22)
-    data = await scanner.async_get_leases(LEASES_DEVICES.copy())
+    data = await scanner.async_get_leases()
     assert LEASES_DEVICES == data
 
 
@@ -202,8 +204,9 @@ async def test_async_get_http_leases(event_loop, mocker):
     mocker.patch(
         'aioddwrt.connection.HttpConnection.async_get_page',
         side_effect=HttpPageMock)
-    scanner = DdWrt(host="localhost", port=22)
+    scanner = DdWrt(host="localhost", protocol='http', port=22)
     data = await scanner.async_get_leases()
+    assert LEASES_DEVICES == data
 
 
 @pytest.mark.asyncio
@@ -215,28 +218,6 @@ async def test_get_arp(event_loop, mocker):
     scanner = DdWrt(host="localhost", port=22)
     data = await scanner.async_get_arp()
     assert ARP_DEVICES == data
-
-
-@pytest.mark.asyncio
-async def test_get_connected_devices_ap(event_loop, mocker):
-    """Test for get ddwrt in ap mode."""
-    mocker.patch(
-        'aioddwrt.connection.SshConnection.async_run_command',
-        side_effect=RunCommandMock)
-    scanner = DdWrt(host="localhost", port=22, mode='ap', require_ip=True)
-    data = await scanner.async_get_connected_devices()
-    assert WAKE_DEVICES_AP == data
-
-
-@pytest.mark.asyncio
-async def test_get_connected_devices_no_ip(event_loop, mocker):
-    """Test for get ddwrt and not requiring ip."""
-    mocker.patch(
-        'aioddwrt.connection.SshConnection.async_run_command',
-        side_effect=RunCommandMock)
-    scanner = DdWrt(host="localhost", port=22, mode='ap', require_ip=False)
-    data = await scanner.async_get_connected_devices()
-    assert WAKE_DEVICES_NO_IP == data
 
 
 @pytest.mark.asyncio

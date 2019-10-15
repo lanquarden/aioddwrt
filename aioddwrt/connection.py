@@ -8,7 +8,6 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-#_PATH_EXPORT_COMMAND = "PATH=$PATH:/bin:/usr/sbin:/sbin"
 asyncssh.set_log_level('WARNING')
 
 
@@ -171,6 +170,8 @@ class HttpConnection(object):
         self.username = username
         self.password = password
         self.session = None
+        # mark as connected
+        self.is_connected = True
 
     async def async_set_session(self):
         if not self.session:

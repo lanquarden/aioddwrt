@@ -47,28 +47,10 @@ _HTTP_DATA = re.compile(r'\{(\w+)::([^\}]*)\}')
 Device = namedtuple('Device', ['mac', 'ip', 'name'])
 
 
-async def _parse_lines(lines, regex):
-    """Parse the lines using the given regular expression.
-
-    If a line can't be parsed it is logged and skipped in the output.
-    """
-    results = []
-    if inspect.iscoroutinefunction(lines):
-        lines = await lines
-    for line in lines:
-        if line:
-            match = regex.search(line)
-            if not match:
-                _LOGGER.debug("Could not parse row: %s", line)
-                continue
-            results.append(match.groupdict())
-    return results
-
-
 class DdWrt:
     """This is the interface class."""
 
-    def __init__(self, host, port=None, protocol='http', username=None,
+    def __init__(self, host, port=None, protocol='ssh', username=None,
                  password=None, ssh_key=None, mode='router', require_ip=False,
                  time_cache=CHANGE_TIME_CACHE_DEFAULT):
         """Init function."""
@@ -100,6 +82,24 @@ class DdWrt:
         else:
             wl_cmd = _IW_CMD
         return wl_cmd
+
+    @staticmethod
+    async def _parse_lines(lines, regex):
+        """Parse the lines using the given regular expression.
+
+        If a line can't be parsed it is logged and skipped in the output.
+        """
+        results = []
+        if inspect.iscoroutinefunction(lines):
+            lines = await lines
+        for line in lines:
+            if line:
+                match = regex.search(line)
+                if not match:
+                    _LOGGER.debug("Could not parse row: %s", line)
+                    continue
+                results.append(match.groupdict())
+        return results
 
     @staticmethod
     async def _parse_http_data(response):
@@ -135,8 +135,10 @@ class DdWrt:
             # is the third element and the name is the first.
             mac_index = (idx * 5) + 2
             if mac_index < len(elements):
-                mac = elements[mac_index]
-                results.append({'mac': mac, 'host': elements[idx * 5]})
+                results.append(
+                    {'mac': elements[(idx * 5) + 2],
+                     'ip': elements[(idx * 5) + 1],
+                     'host': elements[idx * 5]})
         return results
 
     async def async_get_wl(self):
@@ -149,15 +151,14 @@ class DdWrt:
                 self._wl_cmd = await self.async_set_wl_cmd()
             lines = await self.connection.async_run_command(self._wl_cmd)
             if not lines:
-                return {}
-            result = await _parse_lines(lines, _MAC_REGEX)
-        devices = {}
+                return []
+            result = await self._parse_lines(lines, _MAC_REGEX)
+        devices = []
         for device in result:
-            mac = device['mac'].upper()
-            devices[mac] = Device(mac, None, None)
+            devices.append(device['mac'].upper())
         return devices
 
-    async def async_get_leases(self, cur_devices):
+    async def async_get_leases(self):
         if self.protocol == 'http':
             response = await self.connection.async_get_page(
                 'Status_Lan.live.asp')
@@ -167,17 +168,15 @@ class DdWrt:
             if not lines:
                 return {}
             lines = [line for line in lines if not line.startswith('duid ')]
-            result = await _parse_lines(lines, _LEASES_REGEX)
+            result = await self._parse_lines(lines, _LEASES_REGEX)
         devices = {}
         for device in result:
             # For leases where the client doesn't set a hostname, ensure it
             # is blank and not '*', which breaks entity_id down the line.
-            host = device['host']
-            if host == '*':
-                host = ''
-            mac = device['mac'].upper()
-            if mac in cur_devices:
-                devices[mac] = Device(mac, device['ip'], host)
+            if device['host'] == '*':
+                device['host'] = ''
+            device['mac'] = device['mac'].upper()
+            devices[device['mac']] = device
         return devices
 
     async def async_get_arp(self):
@@ -186,34 +185,13 @@ class DdWrt:
         lines = await self.connection.async_run_command(_ARP_CMD)
         if not lines:
             return {}
-        result = await _parse_lines(lines, _ARP_REGEX)
+        result = await self._parse_lines(lines, _ARP_REGEX)
         devices = {}
         for device in result:
             if device['mac'] is not None:
                 mac = device['mac'].upper()
                 devices[mac] = Device(mac, device['ip'], None)
         return devices
-
-    async def async_get_connected_devices(self):
-        """Retrieve data from DDWRT.
-
-        Calls various commands on the router and returns the superset of all
-        responses. Some commands will not work on some routers.
-        """
-        devices = {}
-        dev = await self.async_get_wl()
-        devices.update(dev)
-        dev = await self.async_get_arp()
-        devices.update(dev)
-        if not self.mode == 'ap':
-            dev = await self.async_get_leases(devices)
-            devices.update(dev)
-
-        ret_devices = {}
-        for key in devices:
-            if not self.require_ip or devices[key].ip is not None:
-                ret_devices[key] = devices[key]
-        return ret_devices
 
     async def async_get_bytes_total(self, use_cache=True):
         """Retrieve total bytes (rx an tx) from DDWRT."""
