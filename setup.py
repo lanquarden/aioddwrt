@@ -13,10 +13,10 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 
 __author__ = 'Magnus Knutas'
-VERSION = '1.1.21'
+VERSION = '0.0.1'
 
 setup(
-    name='aioasuswrt',
+    name='aioddwrt',
     version=VERSION,
     description='Api wrapper for Asuswrt https://www.asus.com/ASUSWRT/',
     setup_requires=['setuptools-markdown',
