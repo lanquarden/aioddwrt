@@ -56,6 +56,7 @@ class DdWrt:
         """Init function."""
         self.mode = mode
         self.protocol = protocol
+        self.host = host
         self._rx_latest = None
         self._tx_latest = None
         self._latest_transfer_check = None
