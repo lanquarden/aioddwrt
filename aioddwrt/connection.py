@@ -42,8 +42,7 @@ class SshConnection:
             raise ConnectionError(f"Failed running command at {self._host}")
         except TimeoutError:
             self._connected = False
-            _LOGGER.error("Host timeout.")
-            raise
+            raise ConnectionError(f"Host timeout at {self._host}")
         _LOGGER.debug(f'Command "{command}" returned {result} at {self._host}')
         self._connected = True
         return result.stdout.split('\n')
