@@ -50,11 +50,10 @@ Device = namedtuple('Device', ['mac', 'ip', 'name'])
 class DdWrt:
     """This is the interface class."""
 
-    def __init__(self, host, port=None, protocol='ssh', username=None,
-                 password=None, ssh_key=None, mode='router', require_ip=False,
+    def __init__(self, host=None, port=None, protocol='ssh', username=None,
+                 password=None, ssh_key=None, mode='router', http_session=None,
                  time_cache=CHANGE_TIME_CACHE_DEFAULT):
         """Init function."""
-        self.require_ip = require_ip
         self.mode = mode
         self.protocol = protocol
         self._rx_latest = None
@@ -67,7 +66,8 @@ class DdWrt:
         self._wl_cmd = None
 
         if protocol == 'http':
-            self.connection = HttpConnection(host, username, password)
+            self.connection = HttpConnection(host, http_session, username,
+                                             password)
         elif protocol == 'telnet':
             self.connection = TelnetConnection(
                 host, port, username, password)

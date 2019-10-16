@@ -1,6 +1,7 @@
 """Module for connections."""
 import asyncio
 import logging
+import socket
 from asyncio import LimitOverrunError, TimeoutError
 
 import asyncssh
@@ -33,24 +34,17 @@ class SshConnection:
         """
         if not self.is_connected:
             await self.async_connect()
-        _LOGGER.debug('Running "{}" at {}'.format(command, self._host))
+        _LOGGER.debug(f'Running "{command}" at {self._host}')
         try:
             result = await asyncio.wait_for(self._client.run(command), 9)
         except asyncssh.misc.ChannelOpenError:
-            if not retry:
-                await self.async_connect()
-                return self.async_run_command(command, retry=True)
-            else:
-                self._connected = False
-                _LOGGER.error("No connection to host")
-                return []
+            self._connected = False
+            raise ConnectionError(f"Failed running command at {self._host}")
         except TimeoutError:
-            del self._client
             self._connected = False
             _LOGGER.error("Host timeout.")
-            return []
-        _LOGGER.debug('Command "{}" returned {} at {}'.format(
-            command, str(result), self._host))
+            raise
+        _LOGGER.debug(f'Command "{command}" returned {result} at {self._host}')
         self._connected = True
         return result.stdout.split('\n')
 
@@ -73,11 +67,13 @@ class SshConnection:
         _LOGGER.debug('Connecting to {} with kwargs {}'.format(
             self._host, str(kwargs)))
 
-        self._client = await asyncssh.connect(self._host, **kwargs)
+        try:
+            self._client = await asyncssh.connect(self._host, **kwargs)
+        except asyncssh.Error:
+            raise ConnectionError(f'Failed to connect to {self._host}')
+        except socket.gaierror:
+            raise ConnectionError(f'Failed to connect to {self._host}')
         self._connected = True
-
-    async def clean_up(self):
-        pass
 
 
 class TelnetConnection:
@@ -165,35 +161,28 @@ class TelnetConnection:
 
 class HttpConnection(object):
 
-    def __init__(self, hostname, username, password):
+    def __init__(self, hostname, session, username, password):
         self.host = hostname
         self.username = username
         self.password = password
-        self.session = None
+        self.session = session
         # mark as connected
         self.is_connected = True
+        self.auth = aiohttp.BasicAuth(login=self.username,
+                                      password=self.password)
 
     async def async_set_session(self):
         if not self.session:
-            msg = "Creating HTTP session with login: {} and password {}"
-            _LOGGER.debug(msg.format(self.username, self.password))
-            self.session = aiohttp.ClientSession(
-                auth=aiohttp.BasicAuth(login=self.username,
-                                       password=self.password))
+            _LOGGER.debug("Creating HTTP session")
+            self.session = aiohttp.ClientSession()
 
     async def async_get_page(self, page, retry=False):
-        _LOGGER.debug("Getting {}".format(page))
+        _LOGGER.debug(f"Getting {page}")
         if not self.session:
             await self.async_set_session()
-        url = "http://{}/{}".format(self.host, page)
-        async with self.session.get(url) as response:
-            msg = "Status {} for {}"
-            _LOGGER.debug(msg.format(response.status, url))
+        url = f"http://{self.host}/{page}"
+        async with self.session.get(url, auth=self.auth) as response:
+            _LOGGER.debug(f"Status {response.status} for {url}")
             data = await response.text()
-            msg = "Response {} for {}"
-            _LOGGER.debug(msg.format(url, data))
+            _LOGGER.debug(f"Response {url} for {data}")
             return data
-
-    async def clean_up(self):
-        if self.session:
-            await self.session.close()
