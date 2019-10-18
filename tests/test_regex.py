@@ -231,4 +231,3 @@ async def test_get_packets_total(event_loop, mocker):
     assert TX == data
     data = await scanner.async_get_rx()
     assert RX == data
-

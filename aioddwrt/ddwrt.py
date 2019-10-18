@@ -15,9 +15,9 @@ CHANGE_TIME_CACHE_DEFAULT = 5  # Default 60s
 
 _LEASES_CMD = 'cat /tmp/dnsmasq.leases'
 _LEASES_REGEX = re.compile(
-    r'\w+\s' +
-    r'(?P<mac>(([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})))\s' +
-    r'(?P<ip>([0-9]{1,3}[\.]){3}[0-9]{1,3})\s' +
+    r'\w+\s'
+    r'(?P<mac>(([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})))\s'
+    r'(?P<ip>([0-9]{1,3}[\.]){3}[0-9]{1,3})\s'
     r'(?P<host>([^\s]+))')
 
 # Command to get both 5GHz and 2.4GHz clients
@@ -31,11 +31,11 @@ _MAC_REGEX = re.compile(r'(?P<mac>([0-9A-Fa-f]{1,2}\:){5}[0-9A-Fa-f]{1,2})')
 
 _ARP_CMD = 'arp -n'
 _ARP_REGEX = re.compile(
-    r'.+\s' +
-    r'\((?P<ip>([0-9]{1,3}[\.]){3}[0-9]{1,3})\)\s' +
-    r'.+\s' +
-    r'(?P<mac>(([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})))' +
-    r'\s' +
+    r'.+\s'
+    r'\((?P<ip>([0-9]{1,3}[\.]){3}[0-9]{1,3})\)\s'
+    r'.+\s'
+    r'(?P<mac>(([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})))'
+    r'\s'
     r'.*')
 
 _RX_COMMAND = 'cat /sys/class/net/eth0/statistics/rx_bytes'
