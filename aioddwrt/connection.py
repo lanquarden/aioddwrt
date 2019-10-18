@@ -37,11 +37,13 @@ class SshConnection:
         _LOGGER.debug(f'Running "{command}" at {self._host}')
         try:
             result = await asyncio.wait_for(self._client.run(command), 9)
-        except asyncssh.misc.ChannelOpenError:
+        except asyncssh.misc.ChannelOpenError as e:
             self._connected = False
+            _LOGGER.debug(f"Failed running command at {self._host}: \n{e}")
             raise ConnectionError(f"Failed running command at {self._host}")
         except TimeoutError:
             self._connected = False
+            _LOGGER.debug(f"Host timeout at {self._host}")
             raise ConnectionError(f"Host timeout at {self._host}")
         _LOGGER.debug(f'Command "{command}" returned {result} at {self._host}')
         self._connected = True
@@ -69,8 +71,10 @@ class SshConnection:
         try:
             self._client = await asyncssh.connect(self._host, **kwargs)
         except asyncssh.Error:
+            _LOGGER.debug(f'Failed to connect to {self._host}')
             raise ConnectionError(f'Failed to connect to {self._host}')
         except socket.gaierror:
+            _LOGGER.debug(f'Failed to connect to {self._host}')
             raise ConnectionError(f'Failed to connect to {self._host}')
         self._connected = True
 

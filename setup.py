@@ -12,20 +12,20 @@ from os import path
 
 here = path.abspath(path.dirname(__file__))
 
-__author__ = 'Magnus Knutas'
+__author__ = 'Pepijn Mistiaen'
 VERSION = '0.0.1'
 
 setup(
     name='aioddwrt',
     version=VERSION,
-    description='Api wrapper for Asuswrt https://www.asus.com/ASUSWRT/',
+    description='Api wrapper for DD-WRT https://dd-wrt.com',
     setup_requires=['setuptools-markdown',
                     'pytest-runner'],
     long_description_markdown_filename='README.md',
-    url='https://github.com/kennedyshead/aioasuswrt',
-    download_url='https://github.com/kennedyshead/aioasuswrt/archive/%s.tar.gz' % VERSION,
+    url='https://github.com/lanquarden/aioddwrt',
+    download_url='https://github.com/lanquarden/aioddrwrt/archive/%s.tar.gz' % VERSION,
     author=__author__,
-    author_email='magnusknutas@gmail.com',
+    author_email='lanquarden@gmail.com',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
@@ -33,9 +33,9 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
     ],
-    keywords='Asuswrt wrapper',
+    keywords='ddwrt wrapper',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    install_requires=['asyncssh==1.15.0'],
+    install_requires=['asyncssh>=1.15.0', 'aiohttp'],
     test_suite='tests',
     tests_require=['pytest',
                    'pytest-cov',
