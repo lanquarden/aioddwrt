@@ -1,22 +1,25 @@
-Small wrapper for ddwrt forked from [aioddwrt]
+Async API for [DD-WRT] devices. 
 
-[aioddwrt]: https://github.com/kennedyshead/aioasuswrt
+This has been forked from [aioasuswrt] and adapted for [DD-WRT]
 
-### How to run tests
-
-`python setup.py test`
+[DD-WRT]: https://dd-wrt.com
+[aioasuswrt]: https://github.com/kennedyshead/aioasuswrt
 
 ## Credits:
 [@kennedyshead](https://github.com/kennedyshead)
 
 ## Info
-There are many different versions of ddwrt and sometimes they just don't work 
+There are many different versions of [DD-WRT] and sometimes they just don't work 
 in current implementation.
 If you have a problem with your specific router open an issue, but please add 
 as much info as you can and at least:
 
 * Version of router
-* Version of ddwrt
+* Version of [DD-WRT]
+
+### How to run tests
+
+`python setup.py test`
 
 ## Known issues
 
