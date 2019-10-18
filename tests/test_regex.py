@@ -204,7 +204,8 @@ async def test_async_get_http_leases(event_loop, mocker):
     mocker.patch(
         'aioddwrt.connection.HttpConnection.async_get_page',
         side_effect=HttpPageMock)
-    scanner = DdWrt(host="localhost", protocol='http', port=22)
+    scanner = DdWrt(host="localhost", protocol='http', port=22,
+                    username='fake', password='fake')
     data = await scanner.async_get_leases()
     assert LEASES_DEVICES == data
 
@@ -226,7 +227,7 @@ async def test_get_packets_total(event_loop, mocker):
     mocker.patch(
         'aioddwrt.connection.SshConnection.async_run_command',
         side_effect=RunCommandMock)
-    scanner = DdWrt(host="localhost", port=22, mode='ap', require_ip=False)
+    scanner = DdWrt(host="localhost", port=22, mode='ap')
     data = await scanner.async_get_tx()
     assert TX == data
     data = await scanner.async_get_rx()
