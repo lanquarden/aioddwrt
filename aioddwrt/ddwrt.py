@@ -119,7 +119,7 @@ class DdWrt:
         clean_str = active_wireless.strip().strip("'")
         elements = clean_str.split("','")
 
-        return [item for item in elements if _MAC_REGEX.match(item)]
+        return [{'mac': item} for item in elements if _MAC_REGEX.match(item)]
 
     async def _parse_http_leases(self, response):
         """Parse lease data returned by web."""
